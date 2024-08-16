@@ -1085,6 +1085,50 @@ def update_waymo_infos(pkl_path, out_dir):
     mmengine.dump(converted_data_info, out_path, 'pkl')
 
 
+def update_teeth_infos(pkl_path, out_dir):
+    print(f'{pkl_path} will be modified.')
+    if out_dir in pkl_path:
+        print(f'Warning, you may overwriting '
+              f'the original data {pkl_path}.')
+        time.sleep(5)
+    METAINFO = {'classes': (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)}
+    print(f'Reading from input file: {pkl_path}.')
+    data_list = mmengine.load(pkl_path)
+    print('Start updating:')
+    converted_list = []
+    for i, ori_info_dict in enumerate(mmengine.track_iter_progress(data_list)):
+        temp_data_info = get_empty_standard_data_info()
+        temp_data_info['sample_idx'] = i
+        temp_data_info['lidar_points']['num_pts_feats'] = ori_info_dict[
+            'point_cloud']['num_features']
+        temp_data_info['lidar_points']['lidar_path'] = Path(
+            ori_info_dict['pts_path']).name
+        if 'pts_semantic_mask_path' in ori_info_dict:
+            temp_data_info['pts_semantic_mask_path'] = Path(
+                ori_info_dict['pts_semantic_mask_path']).name
+        if 'adjacency_matrix_path' in ori_info_dict:
+            temp_data_info['adjacency_matrix_path'] = Path(ori_info_dict['adjacency_matrix_path']).name
+        if 'adjacency_ring_num' in ori_info_dict:
+            temp_data_info['adjacency_ring_num'] = ori_info_dict['adjacency_ring_num']
+
+        temp_data_info, _ = clear_data_info_unused_keys(temp_data_info)
+        converted_list.append(temp_data_info)
+        
+    pkl_name = Path(pkl_path).name
+    out_path = osp.join(out_dir, pkl_name)
+    print(f'Writing to output file: {out_path}.')
+
+    # dataset metainfo
+    metainfo = dict()
+    metainfo['categories'] = {k: i for i, k in enumerate(METAINFO['classes'])}
+    metainfo['dataset'] = 'teeth'
+    metainfo['info_version'] = '1.1'
+
+    converted_data_info = dict(metainfo=metainfo, data_list=converted_list)
+
+    mmengine.dump(converted_data_info, out_path, 'pkl')
+
+
 def generate_kitti_camera_instances(ori_info_dict):
 
     cam_key = 'CAM2'
@@ -1148,6 +1192,8 @@ def update_pkl_infos(dataset, out_dir, pkl_path):
         update_nuscenes_infos(pkl_path=pkl_path, out_dir=out_dir)
     elif dataset.lower() == 's3dis':
         update_s3dis_infos(pkl_path=pkl_path, out_dir=out_dir)
+    elif dataset.lower() == 'teeth':
+        update_teeth_infos(pkl_path=pkl_path, out_dir=out_dir)
     else:
         raise NotImplementedError(f'Do not support convert {dataset} to v2.')
 
