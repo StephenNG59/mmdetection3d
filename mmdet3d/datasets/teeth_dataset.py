@@ -32,7 +32,9 @@ class TeethSegDataset(Seg3DDataset):
                  ann_file: str = '',
                  metainfo: Optional[dict] = None,
                  data_prefix: dict = dict(
-                     pts='points', pts_instance_mask='', pts_semantic_mask=''
+                     pts='points', pts_instance_mask='', 
+                     pts_semantic_mask='semantic_mask',
+                     adjacency_matrix='adjacency_matrix'
                  ),
                  pipeline: List[Union[dict, Callable]] = [],
                  modality: dict = dict(use_lidar=True, use_camera=False),
@@ -51,3 +53,24 @@ class TeethSegDataset(Seg3DDataset):
             **kwargs
         )
     
+    def parse_data_info(self, info: dict) -> dict:
+        """Process the raw data info.
+
+        Convert all relative path of needed modality data file to
+        the absolute path. And process
+        the `instances` field to `ann_info` in training stage.
+
+        Args:
+            info (dict): Raw info dict.
+
+        Returns:
+            dict: Has `ann_info` in training stage. And
+            all path has been converted to absolute path.
+        """
+        if 'adjacency_matrix_path' in info:
+            info['adjacency_matrix_path'] = \
+                osp.join(self.data_prefix.get('adjacency_matrix', ''),
+                         info['adjacency_matrix_path'])
+        
+        info = super().parse_data_info(info)
+        return info

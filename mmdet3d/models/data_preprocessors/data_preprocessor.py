@@ -540,3 +540,57 @@ class Det3DDataPreprocessor(DetDataPreprocessor):
         if return_inverse:
             outputs += [inverse_indices]
         return outputs
+
+
+@MODELS.register_module()
+class Det3DDataPreprocessorPlus(Det3DDataPreprocessor):
+    def __init__(self, **kwargs) -> None:
+        super(Det3DDataPreprocessorPlus, self).__init__(**kwargs)
+    
+    def simple_process(self, data: Dict, training: bool = False) -> Dict:
+        if 'img' in data['inputs']:
+            batch_pad_shape = self._get_pad_shape(data)
+
+        data = self.collate_data(data)
+        inputs, data_samples = data['inputs'], data['data_samples']
+        batch_inputs = dict()
+
+        if 'points' in inputs:
+            batch_inputs['points'] = inputs['points']
+
+            if self.voxel:
+                voxel_dict = self.voxelize(inputs['points'], data_samples)
+                batch_inputs['voxels'] = voxel_dict
+
+        if 'imgs' in inputs:
+            imgs = inputs['imgs']
+
+            if data_samples is not None:
+                # NOTE the batched image size information may be useful, e.g.
+                # in DETR, this is needed for the construction of masks, which
+                # is then used for the transformer_head.
+                batch_input_shape = tuple(imgs[0].size()[-2:])
+                for data_sample, pad_shape in zip(data_samples,
+                                                  batch_pad_shape):
+                    data_sample.set_metainfo({
+                        'batch_input_shape': batch_input_shape,
+                        'pad_shape': pad_shape
+                    })
+
+                if self.boxtype2tensor:
+                    samplelist_boxtype2tensor(data_samples)
+                if self.pad_mask:
+                    self.pad_gt_masks(data_samples)
+                if self.pad_seg:
+                    self.pad_gt_sem_seg(data_samples)
+
+            if training and self.batch_augments is not None:
+                for batch_aug in self.batch_augments:
+                    imgs, data_samples = batch_aug(imgs, data_samples)
+            batch_inputs['imgs'] = imgs
+        
+        #NOTE this is the only difference...
+        if 'adjacency_matrix' in inputs:
+            batch_inputs['adjacency_matrix'] = inputs['adjacency_matrix']
+
+        return {'inputs': batch_inputs, 'data_samples': data_samples}

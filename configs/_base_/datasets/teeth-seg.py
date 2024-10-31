@@ -6,7 +6,7 @@ input_modality = dict(use_lidar=True, use_camera=False)
 data_prefix = dict(
     pts='points',
     pts_semantic_mask='semantic_mask',
-    # adjacency_matrix='adjacency_matrix',
+    adjacency_matrix='adjacency_matrix',
 )
 backend_args = None
 
@@ -28,11 +28,12 @@ train_pipeline = [
         with_label_3d=False,
         with_mask_3d=False,
         with_seg_3d=True,
-        # with_adj_mat=True,
+        with_adj_mat=True,
+        adj_mat_load_dim=3,
         # backend_args=backend_args, # is this needed?
     ),
     dict(type='PointSegClassMapping'),
-    dict(type='Pack3DDetInputs', keys=['points', 'pts_semantic_mask']) # 'adjacency_matrix'
+    dict(type='Pack3DDetInputs', keys=['points', 'pts_semantic_mask', 'adjacency_matrix']) # 
 ]
 test_pipeline = [
     dict(
@@ -50,10 +51,11 @@ test_pipeline = [
         with_label_3d=False,
         with_mask_3d=False,
         with_seg_3d=True,
-        # with_adj_mat=True,
+        with_adj_mat=True,
+        adj_mat_load_dim=3,
         # backend_args=backend_args, # is this needed?
     ),
-    dict(type='Pack3DDetInputs', keys=['points']) # why 'pts_semantic_mask' is not needed?
+    dict(type='Pack3DDetInputs', keys=['points', 'adjacency_matrix']) # why 'pts_semantic_mask' is not needed?
 ]
 eval_pipeline=[
     dict(
@@ -83,7 +85,7 @@ tta_pipeline = [
         with_label_3d=False,
         with_mask_3d=False,
         with_seg_3d=True,
-        # with_adj_mat=True,
+        with_adj_mat=True,
         # backend_args=backend_args, # is this needed?
     ),
     dict(
@@ -95,7 +97,7 @@ tta_pipeline = [
                 flip_ratio_bev_horizontal=0.,
                 flip_ratio_bev_vertical=0.
             )],
-            [dict(type='Pack3DDetInputs', keys=['points'])]
+            [dict(type='Pack3DDetInputs', keys=['points', 'adjacency_matrix'])]
         ]
     )
 ]
@@ -127,7 +129,8 @@ test_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='teeth_infos_test_10.pkl',
+        ann_file='teeth_infos_test.pkl',
+        # ann_file='teeth_infos_test_10.pkl',
         metainfo=metainfo,
         data_prefix=data_prefix,
         pipeline=test_pipeline,

@@ -835,6 +835,8 @@ class LoadAnnotations3D(LoadAnnotations):
                  with_attr_label: bool = False,
                  with_mask_3d: bool = False,
                  with_seg_3d: bool = False,
+                 with_adj_mat: bool = False,
+                 adj_mat_load_dim: int = None,
                  with_bbox: bool = False,
                  with_label: bool = False,
                  with_mask: bool = False,
@@ -859,6 +861,8 @@ class LoadAnnotations3D(LoadAnnotations):
         self.with_attr_label = with_attr_label
         self.with_mask_3d = with_mask_3d
         self.with_seg_3d = with_seg_3d
+        self.with_adj_mat = with_adj_mat
+        self.adj_mat_load_dim = adj_mat_load_dim
         self.with_panoptic_3d = with_panoptic_3d
         self.seg_3d_dtype = eval(seg_3d_dtype)
         self.seg_offset = seg_offset
@@ -977,6 +981,39 @@ class LoadAnnotations3D(LoadAnnotations):
             results['eval_ann_info']['pts_semantic_mask'] = pts_semantic_mask
         return results
 
+    def _load_adjacency_matrix(self, results: dict) -> dict:
+        """Private function to load mesh's adjacency matrix.
+
+        Args:
+            results (dict): Result dict from :obj:`mmdet3d.CustomDataset`.
+
+        Returns:
+            dict: The dict containing the adjacency matrix annotations.
+        """
+        adjacency_matrix_path = results['adjacency_matrix_path']
+
+        try:
+            mask_bytes = get(
+                adjacency_matrix_path, backend_args=self.backend_args
+            )
+            adjacency_matrix = np.frombuffer(
+                mask_bytes, dtype=np.int16
+            ).copy()
+        except ConnectionError:
+            mmengine.check_file_exist(adjacency_matrix_path)
+            adjacency_matrix = np.fromfile(
+                adjacency_matrix_path, dtype=np.int16
+            )
+        
+        adjacency_matrix = adjacency_matrix.astype(np.int32)
+        adjacency_matrix = adjacency_matrix.reshape(-1, self.adj_mat_load_dim)
+        results['adjacency_matrix'] = adjacency_matrix
+        
+        # 'eval_ann_info' will be passed to evaluator
+        if 'eval_ann_info' in results:
+            results['eval_ann_info']['adjacency_matrix'] = adjacency_matrix
+        return results
+
     def _load_panoptic_3d(self, results: dict) -> dict:
         """Private function to load 3D panoptic segmentation annotations.
 
@@ -1068,6 +1105,8 @@ class LoadAnnotations3D(LoadAnnotations):
             results = self._load_masks_3d(results)
         if self.with_seg_3d:
             results = self._load_semantic_seg_3d(results)
+        if self.with_adj_mat:
+            results = self._load_adjacency_matrix(results)
         return results
 
     def __repr__(self) -> str:
@@ -1079,6 +1118,7 @@ class LoadAnnotations3D(LoadAnnotations):
         repr_str += f'{indent_str}with_attr_label={self.with_attr_label}, '
         repr_str += f'{indent_str}with_mask_3d={self.with_mask_3d}, '
         repr_str += f'{indent_str}with_seg_3d={self.with_seg_3d}, '
+        repr_str += f'{indent_str}with_adj_mat={self.with_adj_mat}, '
         repr_str += f'{indent_str}with_panoptic_3d={self.with_panoptic_3d}, '
         repr_str += f'{indent_str}with_bbox={self.with_bbox}, '
         repr_str += f'{indent_str}with_label={self.with_label}, '
